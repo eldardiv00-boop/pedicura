@@ -1,0 +1,457 @@
+/* ==========================================================================
+   Pedicura™ — custom layer on top of Tailwind
+   --------------------------------------------------------------------------
+   Everything Tailwind utilities can't express cleanly lives here:
+   design tokens (CSS vars), fluid type scale, keyframes, glass/sheen/skeleton
+   effects, model-viewer states, and reduced-motion handling.
+   All animations stick to transform/opacity → GPU-composited, 60fps.
+   ========================================================================== */
+
+:root {
+  --ink: #171120;
+  --cream: #fcfbf8;
+  --plum-100: #f4eefb;
+  --plum-200: #e9def7;
+  --plum-300: #d6c2ef;
+  --plum-500: #9a6ed1;
+  --plum-600: #7e52bd;
+  --plum-700: #67419e;
+  --plum-900: #332050;
+  --plum-950: #211438;
+  --gold-400: #ddb66e;
+  --gold-500: #ce9d4c;
+  --ease-luxe: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- Base polish ---------- */
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1;
+}
+
+::selection {
+  background: var(--plum-300);
+  color: var(--plum-950);
+}
+
+/* Thin, brand-tinted scrollbar (WebKit) */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--cream); }
+::-webkit-scrollbar-thumb {
+  background: var(--plum-300);
+  border-radius: 8px;
+  border: 2px solid var(--cream);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--plum-500); }
+
+/* Visible, branded focus ring for keyboard users only */
+:focus-visible {
+  outline: 2px solid var(--plum-600);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ---------- Fluid editorial type scale ---------- */
+/* clamp() keeps headings monumental on desktop, balanced on mobile */
+
+.display-xl {
+  font-size: clamp(2.35rem, 1.1rem + 4.6vw, 4.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.display-lg {
+  font-size: clamp(1.9rem, 0.9rem + 3.4vw, 3.4rem);
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.display-md {
+  font-size: clamp(1.45rem, 0.95rem + 1.8vw, 2.2rem);
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+/* Small letter-spaced section kicker */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  color: var(--plum-600);
+}
+
+/* Gradient ink for highlighted heading lines */
+.text-gradient-plum {
+  background: linear-gradient(105deg, var(--plum-700) 10%, var(--plum-500) 55%, var(--plum-700) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Word-reveal scaffolding (hero headline) ---------- */
+/* Each word: outer clip + inner that GSAP slides up into view */
+
+.w-clip {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.08em; /* keep descenders inside the clip */
+  margin-bottom: -0.08em;
+}
+
+.w-inner { display: inline-block; will-change: transform; }
+
+/* ---------- Header: glass on scroll ---------- */
+
+#site-header {
+  transition:
+    transform 0.5s var(--ease-luxe),
+    background-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+#site-header.is-glass {
+  background: rgba(252, 251, 248, 0.72);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  backdrop-filter: saturate(160%) blur(18px);
+  box-shadow: 0 1px 0 rgba(35, 22, 68, 0.06), 0 12px 32px -18px rgba(35, 22, 68, 0.25);
+}
+
+#site-header.is-hidden { transform: translateY(-110%); }
+
+/* Nav link underline that draws in from the start (RTL-aware) */
+.nav-link { position: relative; }
+.nav-link::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: -6px;
+  height: 2px;
+  width: 100%;
+  background: var(--plum-600);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: 100% 50%; /* draws from the right in RTL */
+  transition: transform 0.4s var(--ease-luxe);
+}
+.nav-link:hover::after,
+.nav-link[aria-current='page']::after { transform: scaleX(1); }
+
+/* ---------- Announcement bar rotator ---------- */
+
+.announce-item {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.6s ease, transform 0.6s var(--ease-luxe);
+  pointer-events: none;
+}
+.announce-item.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Buttons: sheen sweep + press feel ---------- */
+
+.btn-sheen { position: relative; overflow: hidden; isolation: isolate; }
+.btn-sheen::after {
+  content: '';
+  position: absolute;
+  inset: -40% auto;
+  top: -40%;
+  bottom: -40%;
+  width: 38%;
+  inset-inline-start: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  transform: skewX(-18deg);
+  transition: inset-inline-start 0.9s var(--ease-luxe);
+  pointer-events: none;
+}
+.btn-sheen:hover::after { inset-inline-start: 130%; }
+
+/* ---------- Pulsing "live viewers" dot ---------- */
+
+.pulse-dot { position: relative; }
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: pulse-ring 2s var(--ease-luxe) infinite;
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.5); opacity: 0.45; }
+  80%, 100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ---------- Stock bar: animated width + shimmer ---------- */
+
+.stock-fill {
+  width: 0%;
+  transition: width 1.4s var(--ease-luxe);
+  position: relative;
+  overflow: hidden;
+}
+.stock-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.35) 50%, transparent 80%);
+  transform: translateX(100%);
+  animation: shimmer-sweep 2.6s ease infinite;
+}
+@keyframes shimmer-sweep {
+  to { transform: translateX(-100%); }
+}
+
+/* ---------- Package selector cards ---------- */
+
+.pkg-card {
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.35s var(--ease-luxe),
+    transform 0.35s var(--ease-luxe),
+    background-color 0.3s ease;
+}
+.pkg-card:hover { transform: translateY(-2px); }
+
+/* peer-checked styles are handled by Tailwind in the markup;
+   this adds the soft glow that utilities can't compose */
+.pkg-input:checked ~ .pkg-card {
+  box-shadow: 0 0 0 1.5px var(--plum-600), 0 16px 40px -16px rgba(126, 82, 189, 0.45);
+}
+
+/* Custom radio indicator */
+.pkg-radio {
+  transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+.pkg-radio svg {
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.25s ease, transform 0.35s var(--ease-luxe);
+}
+.pkg-input:checked ~ .pkg-card .pkg-radio {
+  background: var(--plum-600);
+  border-color: var(--plum-600);
+}
+.pkg-input:checked ~ .pkg-card .pkg-radio svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ---------- Gallery ---------- */
+
+.thumb-btn {
+  transition: transform 0.3s var(--ease-luxe), box-shadow 0.3s ease, opacity 0.3s ease;
+  opacity: 0.65;
+}
+.thumb-btn:hover { opacity: 1; transform: translateY(-3px); }
+.thumb-btn.is-active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--plum-600), 0 10px 22px -10px rgba(126, 82, 189, 0.5);
+}
+
+/* Segmented control (photos / 3D) — thumb is positioned by JS via left/width
+   (physical values, so it works identically in RTL) */
+.seg-btn { transition: color 0.3s ease; }
+.seg-thumb {
+  left: 4px;
+  width: 0;
+  transition: left 0.45s var(--ease-luxe), width 0.45s var(--ease-luxe);
+}
+
+/* ---------- model-viewer: sizing, skeleton, hint ---------- */
+
+model-viewer {
+  width: 100%;
+  height: 100%;
+  display: block;
+  --poster-color: transparent;
+  background: transparent;
+}
+
+/* Shimmering skeleton shown while the .glb streams in */
+.skeleton {
+  background:
+    linear-gradient(110deg, rgba(233, 222, 247, 0) 30%, rgba(255, 255, 255, 0.85) 50%, rgba(233, 222, 247, 0) 70%),
+    linear-gradient(180deg, var(--plum-100), var(--plum-200));
+  background-size: 220% 100%, 100% 100%;
+  animation: skeleton-slide 1.6s linear infinite;
+}
+@keyframes skeleton-slide {
+  to { background-position: -220% 0, 0 0; }
+}
+
+/* ---------- Floating product (tech section) ---------- */
+
+.float-slow { animation: float-y 5.5s ease-in-out infinite; will-change: transform; }
+@keyframes float-y {
+  0%, 100% { transform: translateY(0) rotate(0.0001deg); }
+  50%      { transform: translateY(-14px) rotate(-1.2deg); }
+}
+
+/* Soft radial glow behind featured product shots */
+.glow-stage::before {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(154, 110, 209, 0.28), rgba(154, 110, 209, 0.08) 55%, transparent 75%);
+  filter: blur(8px);
+  z-index: 0;
+}
+
+/* ---------- Spec / feature cards: lift + glow border ---------- */
+
+.spec-card {
+  transition: transform 0.4s var(--ease-luxe), box-shadow 0.4s ease, border-color 0.3s ease;
+}
+.spec-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--plum-300);
+  box-shadow: 0 22px 48px -18px rgba(51, 32, 80, 0.28);
+}
+.spec-card:hover .spec-icon {
+  background: var(--plum-600);
+  color: #fff;
+  transform: scale(1.06) rotate(-4deg);
+}
+.spec-icon {
+  transition: background-color 0.35s ease, color 0.35s ease, transform 0.45s var(--ease-luxe);
+}
+
+/* ---------- Reviews marquee (pure CSS, GPU-friendly) ---------- */
+
+.marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 1rem;
+  animation: marquee-rtl 38s linear infinite;
+}
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes marquee-rtl {
+  /* In RTL the track starts at the right edge; translating +X scrolls it */
+  from { transform: translateX(0); }
+  to   { transform: translateX(50%); }
+}
+
+/* ---------- FAQ accordion ---------- */
+
+.faq-item { transition: box-shadow 0.35s ease, border-color 0.3s ease, background-color 0.3s ease; }
+.faq-item.is-open {
+  border-color: var(--plum-300);
+  box-shadow: 0 16px 40px -20px rgba(51, 32, 80, 0.25);
+}
+.faq-panel {
+  overflow: hidden;
+  height: 0;
+  transition: height 0.5s var(--ease-luxe);
+}
+.faq-chevron { transition: transform 0.45s var(--ease-luxe), background-color 0.3s, color 0.3s; }
+.faq-item.is-open .faq-chevron { transform: rotate(180deg); background: var(--plum-600); color: #fff; }
+
+/* ---------- Mobile menu: backdrop fade + panel slide + link stagger ---------- */
+
+#mobile-menu .menu-backdrop {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+#mobile-menu .menu-panel {
+  /* panel is anchored at inline-end (physical left in RTL) → slide in from there */
+  transform: translateX(-108%);
+  transition: transform 0.55s var(--ease-luxe);
+}
+#mobile-menu .menu-item {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.45s ease, transform 0.55s var(--ease-luxe);
+}
+#mobile-menu.is-open .menu-backdrop { opacity: 1; }
+#mobile-menu.is-open .menu-panel { transform: translateX(0); }
+#mobile-menu.is-open .menu-item { opacity: 1; transform: translateY(0); }
+#mobile-menu.is-open .menu-item:nth-child(1) { transition-delay: 0.10s; }
+#mobile-menu.is-open .menu-item:nth-child(2) { transition-delay: 0.16s; }
+#mobile-menu.is-open .menu-item:nth-child(3) { transition-delay: 0.22s; }
+#mobile-menu.is-open .menu-item:nth-child(4) { transition-delay: 0.28s; }
+#mobile-menu.is-open .menu-item:nth-child(5) { transition-delay: 0.34s; }
+#mobile-menu.is-open div.menu-item { transition-delay: 0.40s; }
+
+/* ---------- Toast (added-to-cart) ---------- */
+
+.toast {
+  transform: translateY(-130%);
+  opacity: 0;
+  transition: transform 0.55s var(--ease-luxe), opacity 0.4s ease;
+}
+.toast.is-visible { transform: translateY(0); opacity: 1; }
+
+/* ---------- Sticky mobile buy bar ---------- */
+
+.sticky-bar {
+  transform: translateY(110%);
+  transition: transform 0.5s var(--ease-luxe);
+}
+.sticky-bar.is-visible { transform: translateY(0); }
+
+/* ---------- Grain texture for the dark finale (luxury print feel) ---------- */
+
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+}
+
+/* ---------- Hidden-until-animated states (only when GSAP is live) ---------- */
+/* animations.js adds .anim-on right before building timelines, so content is
+   never hidden for users without JS / failed CDN loads. */
+
+html.anim-on [data-reveal] { opacity: 0; }
+html.anim-on .w-inner { transform: translateY(112%); }
+
+/* ---------- Utility helpers ---------- */
+
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Number glyphs (prices, stats) — tabular so they don't jiggle while counting */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- Reduced motion: respect the user, kill the show ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+  html.anim-on [data-reveal],
+  html.anim-on .w-inner {
+    opacity: 1;
+    transform: none;
+  }
+}

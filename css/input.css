@@ -1,0 +1,19 @@
+/* ==========================================================================
+   Tailwind entry file — PRODUCTION BUILD ONLY
+   --------------------------------------------------------------------------
+   index.html ships with the Tailwind Play CDN so it runs with zero tooling.
+   For production, compile a static stylesheet instead:
+
+     npx tailwindcss -c tailwind.config.js -i css/input.css -o css/tailwind.css --minify
+
+   …then in index.html:
+     1. remove the <script src="https://cdn.tailwindcss.com"></script> tag
+        and the inline `tailwind.config = {...}` block
+     2. add  <link rel="stylesheet" href="css/tailwind.css" />  before custom.css
+
+   css/custom.css stays linked as-is in both modes.
+   ========================================================================== */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
