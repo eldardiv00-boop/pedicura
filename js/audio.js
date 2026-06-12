@@ -46,6 +46,8 @@ window.AudioSys = (function () {
     const h = loops[name];
     if (!h) return;
     delete loops[name];
+    if (h.intId) clearInterval(h.intId);
+    if (!h.gain) return;
     try {
       const t = ctx.currentTime;
       h.gain.gain.cancelScheduledValues(t);
@@ -205,9 +207,41 @@ window.AudioSys = (function () {
     for (let i = 0; i < 7; i++) thud(75 + Math.random() * 20, 0.26, 0.09, -0.5, t + i * 0.16);
   }
 
+  // slow heartbeat while something is at a door
+  function heart(on) {
+    if (!ensure()) return;
+    if (!on) { stopLoop('heart'); return; }
+    if (loops.heart) return;
+    const beat = () => {
+      try {
+        const t = ctx.currentTime;
+        thud(52, 0.15, 0.12, 0, t);
+        thud(45, 0.11, 0.12, 0, t + 0.17);
+      } catch (e) {}
+    };
+    beat();
+    loops.heart = { intId: setInterval(beat, 820), gain: null, nodes: [] };
+  }
+
+  // distant metal creak (ambience seasoning)
+  function creak() {
+    if (!ensure()) return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(240 + Math.random() * 120, t);
+    o.frequency.exponentialRampToValueAtTime(110 + Math.random() * 60, t + 0.8);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 620; f.Q.value = 6;
+    const g = ctx.createGain(); o.connect(f); f.connect(g); g.connect(master);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.03, t + 0.25);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.9);
+    o.start(t); o.stop(t + 1.0);
+  }
+
   function scream() {
     if (!ensure()) return;
     const t = ctx.currentTime;
+    thud(40, 0.7, 0.5, 0, t); // sub impact
     // distorted vocal-ish saw glide
     const o = ctx.createOscillator(); o.type = 'sawtooth';
     o.frequency.setValueAtTime(640, t);
@@ -281,6 +315,7 @@ window.AudioSys = (function () {
 
   return {
     ensure, ambience, buzz, blip, camFlip, camSwitch, doorSlam, knock, breath,
-    steps, sprint, scream, powerDown, chime, menuStatic, typeTick, stopAllLoops
+    steps, sprint, scream, powerDown, chime, menuStatic, typeTick, stopAllLoops,
+    heart, creak
   };
 })();
