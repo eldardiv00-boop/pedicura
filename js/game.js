@@ -98,10 +98,18 @@
       },
       rust: { stage: 0, timer: INTERVALS.rust, sprinting: false, sprintT: 0 },
       blackout: false,
-      bo: { t: 0, eyesAt: 0, killAt: 0, eyes: 0, stepsPlayed: false }
+      bo: { t: 0, eyesAt: 0, killAt: 0, eyes: 0, stepsPlayed: false },
+      shake: 0,
+      toastT: 0,
+      lastHour: 0,
+      lowBeepT: 0,
+      nextCreak: 12 + rnd(20),
+      camSeen: {}
     };
     S.ambience(true);
   }
+
+  function addShake(n) { if (G) G.shake = Math.min(16, G.shake + n); }
 
   // ---------- door/light/monitor actions ----------
   function doorClosed(side) { return G.doors[side].closed; }
@@ -111,6 +119,7 @@
     const d = G.doors[side];
     d.closed = !d.closed;
     S.doorSlam(side);
+    addShake(3);
   }
 
   function toggleLight(side) {
@@ -133,10 +142,23 @@
     if (G.monitor.up) lightsOff();
   }
 
+  // what's visible on a feed right now (for motion detection)
+  function camSig(i) {
+    let sig = '';
+    for (const who of ['strix', 'howler', 'wart']) {
+      const c = G.chars[who];
+      if (c.state === 'path' && PATHS[who][c.idx] === i) sig += who;
+    }
+    if (i === 4) sig += 'r' + G.rust.stage;
+    return sig;
+  }
+
   function switchCam(i) {
     if (!G.monitor.up || i === G.monitor.cam) return;
     G.monitor.cam = i;
-    G.monitor.burst = 0.45;
+    // bigger interference burst if the room changed since you last looked
+    const moved = G.camSeen[i] !== undefined && G.camSeen[i] !== camSig(i);
+    G.monitor.burst = moved ? 0.75 : 0.45;
     S.camSwitch();
   }
 
@@ -192,7 +214,7 @@
     if (c.state === 'door') {
       if (doorClosed(side)) {
         c.defendT += dt;
-        if (c.defendT > 0.8) { S.knock(side, false); retreat(who); }
+        if (c.defendT > 0.8) { S.knock(side, false); addShake(5); retreat(who); }
       } else {
         c.defendT = 0;
         c.killT -= dt;
@@ -217,12 +239,14 @@
       // step from the corner to the door
       if (doorClosed(side)) {
         S.knock(side, false);
+        addShake(5);
         retreat(who);
       } else {
         c.state = 'door';
         c.killT = Math.max(2.4, 4.8 - night * 0.35);
         c.defendT = 0;
         S.breath(side);
+        addShake(1.5);
       }
     }
   }
@@ -235,6 +259,7 @@
         r.sprinting = false;
         if (doorClosed('L')) {
           S.knock('L', true);
+          addShake(12);
           G.power = Math.max(0, G.power - (1 + irnd(5)));
           r.stage = 0;
           r.timer = INTERVALS.rust * 2;
@@ -288,6 +313,30 @@
     G.fanA += dt * (G.blackout ? 1 : 16);
     G.flicker = Math.random() < 0.05 ? rnd(1) : 1;
     if (Math.random() < 0.04) G.hallFlick = !G.hallFlick;
+    G.shake = Math.max(0, G.shake - dt * 26);
+    G.toastT = Math.max(0, G.toastT - dt);
+
+    // hour rollover toast
+    const hr = Math.floor(G.t / HOUR_LEN);
+    if (hr !== G.lastHour && hr < 6) {
+      G.lastHour = hr;
+      G.toastT = 2.4;
+      S.blip(520, 0.05, 0.3);
+    }
+
+    // distant workshop creaks
+    G.nextCreak -= dt;
+    if (G.nextCreak <= 0) { G.nextCreak = 14 + rnd(26); S.creak(); }
+
+    // heartbeat when something is breathing down your neck
+    const danger = !G.blackout && (!!charAtDoor('L') || !!charAtDoor('R') || G.rust.sprinting);
+    S.heart(danger);
+
+    // low-power warning chirp
+    if (!G.blackout && G.power < 20) {
+      G.lowBeepT -= dt;
+      if (G.lowBeepT <= 0) { G.lowBeepT = 5; S.blip(190, 0.05, 0.25); }
+    }
 
     // pan toward mouse
     const target = (mouse.x / W) * PAN_MAX;
@@ -383,14 +432,19 @@
       sprintFlash: G.rust.sprinting,
       lightFlicker: G.hallFlick
     });
+    G.camSeen[camIdx] = camSig(camIdx); // mark this feed as "seen like this"
 
     // CRT dressing
+    A.glitch(ctx, G.t, 1);
     A.noiseOverlay(ctx, 0.10 + G.monitor.burst * 0.8);
     A.scanlines(ctx, 0.4);
     A.vignette(ctx, 0.55);
 
-    // label + REC
+    // label + REC + timestamp
     A.text(ctx, 'CAM 0' + (camIdx + 1) + ' — ' + ROOMS[camIdx], 22, 30, 18, '#cfe6cf', 'left', null, 2);
+    const mins = Math.floor((G.t % HOUR_LEN) / HOUR_LEN * 60);
+    A.text(ctx, 'NIGHT ' + night + '  ' + hourLabel().replace(' ', ':' + (mins < 10 ? '0' : '') + mins + ' '),
+      22, H - 24, 13, 'rgba(180,220,180,0.55)', 'left', null, 1);
     if (Math.floor(G.t * 2) % 2 === 0) {
       ctx.fillStyle = '#ff4040';
       ctx.beginPath(); ctx.arc(28, 58, 6, 0, 7); ctx.fill();
@@ -422,6 +476,12 @@
 
   // ---------- drawing: night ----------
   function drawNight() {
+    // screen shake
+    ctx.save();
+    if (G.shake > 0.1) {
+      ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake);
+    }
+    const atL = charAtDoor('L'), atR = charAtDoor('R');
     if (G.monitor.anim > 0.6) {
       drawCamUI();
     } else {
@@ -429,15 +489,21 @@
         pan: G.pan,
         doorL: G.doors.L.anim, doorR: G.doors.R.anim,
         lightL: G.lights.L, lightR: G.lights.R,
-        atL: charAtDoor('L'), atR: charAtDoor('R'),
+        atL: atL, atR: atR,
         fanA: G.fanA,
         blackout: G.blackout,
         eyesFlicker: G.blackout ? G.bo.eyes : 0,
         flicker: G.flicker,
-        t: G.t
+        t: G.t,
+        prog: G.t / NIGHT_LEN,
+        powerLow: G.power < 20
       });
       A.vignette(ctx, 0.5);
       A.noiseOverlay(ctx, 0.05);
+    }
+    // danger: pulsing edge darkness while something waits at a door
+    if (!G.blackout && (atL || atR || G.rust.sprinting)) {
+      A.vignette(ctx, 0.22 + 0.13 * Math.sin(G.t * 5.2));
     }
     // monitor flip wipe
     if (G.monitor.anim > 0.05 && G.monitor.anim < 0.95) {
@@ -447,6 +513,12 @@
     }
     if (!G.blackout) drawMonitorStrip(G.monitor.up);
     drawHUD();
+    // hour rollover toast
+    if (G.toastT > 0) {
+      const a = Math.min(1, G.toastT / 0.6) * Math.min(1, (2.4 - G.toastT) / 0.4);
+      A.text(ctx, hourLabel(), W / 2, 90, 40, 'rgba(232,232,224,' + a * 0.85 + ')', 'center', null, 8);
+    }
+    ctx.restore();
   }
 
   // ---------- menu-ish screens ----------
@@ -463,8 +535,13 @@
 
   function drawMenu(t) {
     A.drawMenuBg(ctx, t);
+    // faulty-sign title: occasional brightness drops and a rare full blink
+    const flick = Math.random() < 0.05 ? 0.3 + rnd(0.45) : 1;
+    ctx.save();
+    ctx.globalAlpha = flick;
     A.text(ctx, 'GRAVEYARD', 80, 120, 64, '#dfe3df', 'left', null, 10);
     A.text(ctx, 'SHIFT', 80, 185, 64, '#dfe3df', 'left', null, 10);
+    ctx.restore();
     A.text(ctx, 'at Bergmann\'s Workshop', 84, 232, 18, '#8a948e', 'left', null, 3);
 
     let y = 290;
