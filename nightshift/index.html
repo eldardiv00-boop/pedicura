@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nightshift — Phase 1</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game"></canvas>
+  </div>
+  <noscript>This game needs JavaScript enabled.</noscript>
+
+  <!-- load order matters: config -> assets -> fsm -> hud -> states -> main -->
+  <script src="src/config.js"></script>
+  <script src="src/assets.js"></script>
+  <script src="src/fsm.js"></script>
+  <script src="src/hud.js"></script>
+  <script src="src/states.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
