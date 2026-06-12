@@ -1,0 +1,32 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game {
+  /* keep 16:9, letterbox the rest */
+  width: min(100vw, calc(100vh * (16 / 9)));
+  height: min(100vh, calc(100vw * (9 / 16)));
+  background: #000;
+  outline: none;
+}
+
+noscript {
+  color: #cfd6d2;
+  font-family: "Courier New", monospace;
+  position: fixed;
+  top: 50%;
+  width: 100%;
+  text-align: center;
+}
