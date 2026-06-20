@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Scroll the story into motion — Three.js</title>
+  <meta name="description" content="A scroll-driven frame animation built with Three.js. Scroll down to play the film, scroll up to rewind it." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --ink: #f4f5fb;
+      --muted: rgba(244, 245, 251, 0.60);
+      --faint: rgba(244, 245, 251, 0.30);
+      --accent: #8b7bff;
+      --accent-2: #7be0ff;
+      /* clean gradient background — the visible backdrop of the whole section */
+      --bg:
+        radial-gradient(1200px 820px at 75% 8%, #2c2466 0%, rgba(44, 36, 102, 0) 56%),
+        radial-gradient(1100px 820px at 12% 92%, #103a54 0%, rgba(16, 58, 84, 0) 58%),
+        linear-gradient(165deg, #0d0f20 0%, #07091380 55%, #04050b 100%),
+        #06070f;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      background-attachment: fixed;
+      color: var(--ink);
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      min-height: 100%;
+    }
+
+    /* faint grain/glow accents on the gradient so it doesn't read flat */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(60% 50% at 50% 38%, rgba(139,123,255,0.10), transparent 70%);
+    }
+
+    /* ---- Scroll driver: this tall element creates the scroll distance ----- */
+    #experience { position: relative; z-index: 1; }
+
+    /* ---- Sticky stage: stays pinned while the clip scrubs ----------------- */
+    .stage {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(16px, 2.6vh, 30px);
+      padding: clamp(14px, 3vh, 34px) clamp(16px, 4vw, 40px);
+      text-align: center;
+    }
+
+    /* ---- Hero headline (sits above the video panel) ---------------------- */
+    .hero { max-width: min(92vw, 680px); }
+    .hero .eyebrow {
+      display: inline-block;
+      font-size: clamp(11px, 1.05vw, 13px);
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 14px;
+      font-weight: 600;
+    }
+    .hero h1 {
+      font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.85rem, 4.4vw, 3.6rem);
+      line-height: 1.04;
+      letter-spacing: -0.02em;
+      margin: 0;
+      text-wrap: balance;
+      text-shadow: 0 2px 40px rgba(0, 0, 0, 0.35);
+    }
+    .hero h1 .grad {
+      background: linear-gradient(100deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p {
+      margin: 16px auto 0;
+      max-width: 46ch;
+      font-size: clamp(0.95rem, 1.4vw, 1.12rem);
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    /* ---- The video panel ------------------------------------------------- */
+    .film { position: relative; }       /* width set in JS to match the clip */
+    .panel {
+      position: relative;
+      margin: 0 auto;
+      border-radius: clamp(12px, 1.4vw, 20px);
+      overflow: hidden;
+      background: #05060d;
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
+      transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.08) inset,
+        0 40px 90px -30px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .panel.is-ready { opacity: 1; transform: none; }
+    .panel #webgl, .panel #webgl canvas { display: block; width: 100%; height: 100%; }
+    /* soft inner ring + top sheen for a polished frame */
+    .panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 22%);
+    }
+    /* accent glow behind the panel so it lifts off the gradient */
+    .film::before {
+      content: "";
+      position: absolute;
+      inset: -8% -6%;
+      z-index: -1;
+      border-radius: 40px;
+      background: radial-gradient(60% 60% at 50% 50%, rgba(139, 123, 255, 0.28), transparent 70%);
+      filter: blur(40px);
+      opacity: 0.9;
+    }
+
+    /* ---- Scrubber (progress + timecode) under the panel ------------------ */
+    .scrubber {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 18px;
+      font-variant-numeric: tabular-nums;
+    }
+    .scrubber__track {
+      position: relative;
+      flex: 1;
+      height: 3px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+    .scrubber__bar {
+      position: absolute;
+      inset: 0;
+      transform-origin: 0 50%;
+      transform: scaleX(0);
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 12px rgba(123, 224, 255, 0.55);
+    }
+    .scrubber__time {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--faint);
+      white-space: nowrap;
+    }
+    .scrubber__time b { color: var(--ink); font-weight: 600; }
+
+    /* ---- Scroll cue ------------------------------------------------------ */
+    .cue {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      will-change: opacity;
+    }
+    .cue .mouse {
+      width: 21px; height: 33px; flex: none;
+      border: 1.5px solid rgba(244, 245, 251, 0.5);
+      border-radius: 11px;
+      position: relative;
+    }
+    .cue .mouse::after {
+      content: "";
+      position: absolute;
+      left: 50%; top: 7px;
+      width: 3px; height: 7px;
+      margin-left: -1.5px;
+      border-radius: 2px;
+      background: var(--ink);
+      animation: wheel 1.6s ease-in-out infinite;
+    }
+    @keyframes wheel {
+      0% { opacity: 0; transform: translateY(-4px); }
+      40% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(9px); }
+    }
+
+    /* ---- Loading + fallback --------------------------------------------- */
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 18px;
+      background: var(--bg);
+      transition: opacity 0.7s ease;
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #loader.is-hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 34px; height: 34px;
+      border: 2px solid rgba(244, 245, 251, 0.18);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #fallback {
+      position: fixed;
+      inset: 0;
+      z-index: 19;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: var(--bg);
+    }
+    #fallback p { max-width: 40ch; line-height: 1.6; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .panel { transition: opacity 0.4s ease; transform: none; }
+      .cue .mouse::after { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- the tall element below is what you scroll through; the stage is pinned -->
+  <div id="experience">
+    <section class="stage">
+      <header class="hero" id="hero">
+        <span class="eyebrow">Three.js · Scroll-driven</span>
+        <h1>Scroll the story <span class="grad">into motion</span></h1>
+        <p>Every frame is bound to your scroll. Roll down to play it forward —
+           roll back up to rewind.</p>
+      </header>
+
+      <div class="film" id="film">
+        <div class="panel" id="panel">
+          <div id="webgl" aria-hidden="true"></div>
+        </div>
+        <div class="scrubber">
+          <div class="scrubber__track"><div class="scrubber__bar" id="bar"></div></div>
+          <div class="scrubber__time"><b id="tcur">0.0s</b> / <span id="tdur">0.0s</span></div>
+        </div>
+      </div>
+
+      <div class="cue" id="cue"><span class="mouse"></span> Scroll to play</div>
+    </section>
+  </div>
+
+  <!-- the source clip (hidden); decoded into a GPU texture by Three.js -->
+  <video id="clip" playsinline muted preload="auto">
+    <source src="assets/scene.mp4" type="video/mp4" />
+  </video>
+
+  <div id="loader"><div class="spinner"></div><span>Loading film…</span></div>
+  <div id="fallback"><p>This experience needs a WebGL-capable browser.</p></div>
+
+  <noscript>
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:sans-serif;">
+      This experience needs JavaScript enabled.
+    </div>
+  </noscript>
+
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    // ---- Tunables ---------------------------------------------------------
+    const SCROLL_LENGTH = 6;     // page height in viewports (incl. the visible one)
+    const EASE          = 0.085; // 0..1 — lower = smoother / heavier scrub
+    const SEEK_EPSILON  = 0.015; // seconds; ignore sub-frame deltas
+    const PANEL_MAX_W   = 1080;  // px
+    const PANEL_VW      = 0.92;  // fraction of viewport width
+
+    // ---- DOM --------------------------------------------------------------
+    const mount    = document.getElementById("webgl");
+    const film     = document.getElementById("film");
+    const panel    = document.getElementById("panel");
+    const video    = document.getElementById("clip");
+    const loader   = document.getElementById("loader");
+    const fallback = document.getElementById("fallback");
+    const cue      = document.getElementById("cue");
+    const bar      = document.getElementById("bar");
+    const tcur     = document.getElementById("tcur");
+    const tdur     = document.getElementById("tdur");
+    const experience = document.getElementById("experience");
+
+    experience.style.height = (SCROLL_LENGTH * 100) + "vh";
+
+    // ---- Three.js setup ---------------------------------------------------
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" });
+    } catch (err) {
+      console.error(err);
+      fallback.style.display = "flex";
+      loader.classList.add("is-hidden");
+      throw err;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x05060d, 1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    mount.appendChild(renderer.domElement);
+
+    const scene  = new THREE.Scene();
+    const camera = new THREE.Camera(); // quad is drawn directly in clip space
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const uniforms = {
+      uTex:          { value: texture },
+      uTexAspect:    { value: 16 / 9 },
+      uPanelAspect:  { value: 16 / 9 },
+    };
+
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: /* glsl */`
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */`
+        precision highp float;
+        uniform sampler2D uTex;
+        uniform float uTexAspect;
+        uniform float uPanelAspect;
+        varying vec2 vUv;
+        void main() {
+          // cover-fit (the panel matches the clip aspect, so this is a no-op,
+          // but it keeps the frame correct during the brief resize transitions)
+          vec2 s = (uPanelAspect > uTexAspect)
+            ? vec2(1.0, uTexAspect / uPanelAspect)
+            : vec2(uPanelAspect / uTexAspect, 1.0);
+          vec2 uv = (vUv - 0.5) * s + 0.5;
+          gl_FragColor = vec4(texture2D(uTex, uv).rgb, 1.0);
+        }
+      `,
+    });
+
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    quad.frustumCulled = false;
+    scene.add(quad);
+
+    // ---- Panel sizing: fit the clip's aspect inside the leftover space ----
+    // (measure the headline + scrubber + cue so the whole stage fits one screen)
+    const stageEl   = document.querySelector(".stage");
+    const heroEl    = document.getElementById("hero");
+    const scrubberEl= document.querySelector(".scrubber");
+    let videoAspect = 16 / 9;
+    function layoutPanel() {
+      const cs = getComputedStyle(stageEl);
+      const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      const gap  = parseFloat(cs.rowGap) || 0;
+      // everything in the stage that isn't the video panel itself
+      const chrome = heroEl.offsetHeight + scrubberEl.offsetHeight + cue.offsetHeight
+                   + padV + gap * 2 + 18 /* scrubber margin-top */ + 8 /* breathing room */;
+      const availH = Math.max(150, window.innerHeight - chrome);
+      const availW = Math.min(window.innerWidth * PANEL_VW, PANEL_MAX_W);
+      let w = availW, h = w / videoAspect;
+      if (h > availH) { h = availH; w = h * videoAspect; }
+      w = Math.round(w); h = Math.round(h);
+      film.style.width = w + "px";
+      panel.style.height = h + "px";
+      renderer.setSize(w, h, true);
+      uniforms.uPanelAspect.value = w / h;
+    }
+    window.addEventListener("resize", layoutPanel);
+    window.addEventListener("load", layoutPanel);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutPanel);
+    layoutPanel();
+
+    // ---- Scroll → target time --------------------------------------------
+    let progress = 0, targetTime = 0, displayTime = 0, duration = 0;
+    function readScroll() {
+      const max = (document.documentElement.scrollHeight - window.innerHeight) || 1;
+      progress = Math.min(Math.max(window.scrollY / max, 0), 1);
+      targetTime = progress * duration;
+    }
+    window.addEventListener("scroll", readScroll, { passive: true });
+
+    // ---- Overlay reactions ------------------------------------------------
+    const clamp01 = (x) => Math.min(Math.max(x, 0), 1);
+    const fmt = (s) => (isFinite(s) ? s.toFixed(1) : "0.0") + "s";
+    function updateOverlay() {
+      cue.style.opacity = clamp01(1 - progress / 0.05);
+      bar.style.transform = `scaleX(${progress.toFixed(4)})`;
+      tcur.textContent = fmt(displayTime);
+    }
+
+    // ---- Video ready ------------------------------------------------------
+    let ready = false;
+    function onReady() {
+      if (ready) return;
+      ready = true;
+      duration = (video.duration && isFinite(video.duration)) ? video.duration : 5;
+      if (video.videoWidth && video.videoHeight) {
+        videoAspect = video.videoWidth / video.videoHeight;
+        uniforms.uTexAspect.value = videoAspect;
+        layoutPanel();
+      }
+      tdur.textContent = fmt(duration);
+      video.pause();
+      try { video.currentTime = 0; } catch (e) {}
+      readScroll();
+      displayTime = targetTime;
+      panel.classList.add("is-ready");
+      loader.classList.add("is-hidden");
+    }
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("canplay", onReady);
+    video.addEventListener("error", () => {
+      fallback.querySelector("p").textContent = "The film clip couldn't load (assets/scene.mp4).";
+      fallback.style.display = "flex";
+      loader.classList.add("is-hidden");
+    });
+    video.load();
+
+    // iOS/Safari often need one play→pause before frame-accurate seeking works.
+    let primed = false;
+    function prime() {
+      if (primed) return;
+      primed = true;
+      const p = video.play();
+      if (p && p.then) p.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    }
+    ["pointerdown", "touchstart", "wheel", "keydown"].forEach((ev) =>
+      window.addEventListener(ev, prime, { once: true, passive: true })
+    );
+
+    // ---- Render loop ------------------------------------------------------
+    function tick() {
+      requestAnimationFrame(tick);
+
+      // ease the shown time toward the scroll target → forward on scroll-down,
+      // reverse on scroll-up, with momentum.
+      displayTime += (targetTime - displayTime) * EASE;
+
+      if (ready && duration > 0) {
+        const t = Math.min(Math.max(displayTime, 0), duration - 0.001);
+        if (!video.seeking && Math.abs(video.currentTime - t) > SEEK_EPSILON) {
+          try { video.currentTime = t; } catch (e) {}
+        }
+        texture.needsUpdate = true; // re-upload the current frame to the GPU
+      }
+
+      updateOverlay();
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
