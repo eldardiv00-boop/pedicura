@@ -18,8 +18,10 @@ It needs **no Tailwind config and no external CSS** (all styles are scoped under
 2. **Create the component.** Add a new file `src/components/ScrollVideoSection.tsx`
    and paste in the contents of `ScrollVideoSection.tsx` from this folder.
 
-3. **Add your video + use the component.** Drop your clip into the project's
-   `public/` folder (e.g. `public/scene.mp4`), then render the section on a page —
+3. **Add your video + use the component.** A ready-to-use clip is included in this
+   folder as **`scene.mp4`** (4s, watermark removed, all-keyframe for smooth
+   scrubbing) — drop it into the project's `public/` folder (so it's at
+   `public/scene.mp4`), or use your own. Then render the section on a page —
    for example in `src/pages/Index.tsx`:
 
    ```tsx
