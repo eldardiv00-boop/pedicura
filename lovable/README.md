@@ -73,6 +73,9 @@ section in a longer layout.
 
 - **Video format:** use a web-standard **H.264/AAC `.mp4`** (or `.webm`). It's served
   from `public/`, so reference it as `/yourfile.mp4`.
+- **No upload? Use a URL.** `videoSrc` also accepts a full URL, so you can skip adding
+  a file to your project and point at a hosted copy (the component requests it with
+  CORS). For production, a file in `public/` is the more robust choice.
 - **Smoothest scrubbing:** encode with frequent keyframes so seeking is instant:
   `ffmpeg -i in.mp4 -g 1 -c:v libx264 -crf 20 -movflags +faststart public/scene.mp4`
 - **Aspect ratio** is detected at runtime — the panel auto-fits the clip with no

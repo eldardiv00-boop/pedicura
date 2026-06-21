@@ -291,7 +291,7 @@ export default function ScrollVideoSection({
         )}
       </div>
 
-      <video ref={videoRef} className="svs-clip" playsInline muted preload="auto">
+      <video ref={videoRef} className="svs-clip" playsInline muted preload="auto" crossOrigin="anonymous">
         <source src={videoSrc} type="video/mp4" />
       </video>
     </section>
