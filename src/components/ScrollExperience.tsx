@@ -311,10 +311,12 @@ export default function ScrollExperience() {
     >
       {/* Pinned stage */}
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        {/* Three.js (WebGL) canvas — falls back to 2D canvas automatically */}
+        {/* Three.js (WebGL) canvas — falls back to 2D canvas automatically.
+            White backdrop matches the white-background frames in every viewport
+            (incl. portrait "contain" letterboxing). */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 block h-full w-full"
+          className="absolute inset-0 block h-full w-full bg-white"
         />
 
         {/* Top scroll-progress bar */}
