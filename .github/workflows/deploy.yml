@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - claude/fervent-cannon-mh6zho
+      - main
   workflow_dispatch:
 
 permissions:
