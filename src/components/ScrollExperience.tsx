@@ -9,7 +9,7 @@ const FRAME_COUNT = 92;
 const IMG_W = 1280;
 const IMG_H = 720;
 const framePath = (i: number) =>
-  `/frames/frame_${String(i).padStart(3, "0")}.webp`;
+  `${import.meta.env.BASE_URL}frames/frame_${String(i).padStart(3, "0")}.webp`;
 
 /* Component callouts, timed to the exploded-view reveal (scroll progress). */
 const CALLOUTS = [
