@@ -6,8 +6,8 @@ import { clamp, smoothstep, trapezoid } from "../lib/math";
 /*  Frame sequence config                                                     */
 /* -------------------------------------------------------------------------- */
 const FRAME_COUNT = 92;
-const IMG_W = 1280;
-const IMG_H = 720;
+const IMG_W = 1920;
+const IMG_H = 1080;
 const framePath = (i: number) =>
   `${import.meta.env.BASE_URL}frames/frame_${String(i).padStart(3, "0")}.webp`;
 
