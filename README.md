@@ -51,6 +51,26 @@ src/
   lib/math.ts              clamp / smoothstep / trapezoid / lerp helpers
 ```
 
+## Import into Lovable
+
+This project uses Lovable's native stack (Vite + React + TypeScript + Tailwind),
+so it imports cleanly via GitHub two-way sync:
+
+1. In Lovable, connect your GitHub account and grant access to this repo.
+2. **New Project → Import from GitHub**, then select this repo and the
+   `main` branch.
+
+Notes for the import:
+
+- The dev server runs on port **8080** (`vite.config.ts`), matching Lovable.
+- `base` is only set to `/pedicura/` under GitHub Actions; locally and inside
+  Lovable it stays `/`, so the preview works at the root.
+- Frame asset URLs use `import.meta.env.BASE_URL`, so they resolve correctly
+  regardless of the deploy path.
+- The hero animation in `src/components/ScrollExperience.tsx` is hand-written
+  Three.js/WebGL. It builds and runs fine, but prompt-driven edits to that
+  specific file may be less reliable than to the standard React/Tailwind parts.
+
 ## Notes
 
 - The previous browser game that lived in this repo is preserved under
