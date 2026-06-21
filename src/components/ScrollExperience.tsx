@@ -197,10 +197,21 @@ export default function ScrollExperience() {
     for (let i = 0; i < FRAME_COUNT; i++) {
       const img = new Image();
       img.decoding = "async";
-      img.src = framePath(i);
-      img.onload = () => onOneLoaded(i, img);
-      img.onerror = () => onOneLoaded(i, img); // don't stall the loader on a hiccup
       images[i] = img;
+      const done = () => onOneLoaded(i, img);
+      img.onerror = done; // don't stall the loader on a hiccup
+      img.src = framePath(i);
+      // Fully decode each frame up front. Otherwise the browser may decode a
+      // 1080p WebP the first time it's shown mid-scroll, which is the main
+      // source of scroll-scrub jank.
+      if (typeof img.decode === "function") {
+        img.decode().then(done).catch(() => {
+          if (img.complete) done();
+          else img.onload = done;
+        });
+      } else {
+        img.onload = done;
+      }
     }
 
     /* ---------------------------- scroll progress -------------------------- */
@@ -244,21 +255,26 @@ export default function ScrollExperience() {
     let raf = 0;
     let current = 0;
     let lastIdx = -1;
+    let lastT = performance.now();
 
     const drawFrame = (idx: number) => {
       const img = images[idx];
       if (img && img.complete && img.naturalWidth > 0) paint(img);
     };
 
-    const loop = () => {
+    const loop = (t: number) => {
       const p = computeProgress();
       updateOverlay(p);
       // Product rests low at the hero (room for copy), then rises to center
       // as the exploded reveal plays.
       offsetY = portraitBias * (1 - smoothstep(0, 0.2, p));
       const target = p * (FRAME_COUNT - 1);
-      current += (target - current) * 0.16;
-      if (Math.abs(target - current) < 0.005) current = target;
+      // Frame-rate-independent damping: the scrub tracks the scroll tightly
+      // (less perceived lag) and feels identical at 60 and 120 Hz.
+      const dt = Math.min((t - lastT) / 16.667, 3);
+      lastT = t;
+      current += (target - current) * (1 - Math.pow(1 - 0.2, dt));
+      if (Math.abs(target - current) < 0.004) current = target;
       const idx = clamp(Math.round(current), 0, FRAME_COUNT - 1);
       if (idx !== lastIdx) {
         drawFrame(idx);
