@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Sleep Start Alarm",
+    "slug": "sleep-start-alarm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B1120",
+    "splash": {
+      "backgroundColor": "#0B1120"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1120",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["VIBRATE", "SCHEDULE_EXACT_ALARM", "POST_NOTIFICATIONS", "WAKE_LOCK"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/alarm_classic.wav",
+            "./assets/sounds/alarm_chime.wav",
+            "./assets/sounds/alarm_digital.wav"
+          ]
+        }
+      ],
+      "expo-audio"
+    ]
+  }
+}
